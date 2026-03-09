@@ -1,0 +1,79 @@
+# Training config matching slurm/train.sh (4-GPU DDP, 7-day run).
+# Usage:
+#   python scripts/train.py --config conf/training/slurm.yaml --data_dir /path/to/data
+#   # Override num_workers per node: --num_workers 9
+# SLURM script can pass --data_dir and --num_workers; other args come from this file.
+
+# --- Run / experiment ---
+seed: 0
+experiment: sigmadock
+# data_dir: set via CLI (e.g. ${ROOT_DST}/${PROJECT}/data/)
+train_exps:
+  - pdbbind-general
+  - pdbbind-refined
+val_exps:
+  - pdbbind-core
+test_exps:
+  - posebusters
+  - astex
+
+# --- Hardware (DDP) ---
+devices: auto
+accelerator: auto
+strategy: ddp
+cuda_precision: high
+# num_workers: set via CLI from SLURM_CPUS_PER_TASK (e.g. SLURM_CPUS_PER_TASK - 3)
+
+# --- Training loop ---
+max_epochs: 256
+batch_size: 64
+val_check_interval: 512
+val_cycles: 2
+cache_cycles: 8
+cache_factor: 2
+
+# --- Model / architecture ---
+sphere_channels: 128
+edge_channels: 32
+distance_expansion_dim: 32
+num_heads: 4
+num_layers: 6
+l_max_list: [3]
+m_max_list: [2]
+t_emb_dim: 32
+t_emb_scale: 512.0
+smearing_type: fourier
+radial_type: bessel
+
+# --- Loss weights ---
+trans_score_weight: 2.0
+rot_score_weight: 0.5
+rot_score_method: space
+rot_score_scaling: rms
+
+# --- Optimizer ---
+weight_decay: 0.1
+attention_dropout: 0.3
+edge_dropout: 0.1
+betas: [0.9, 0.998]
+optimizer_eps: 1.0e-08
+max_lr_start: 1e-4
+min_lr_start: 1e-5
+init_lr_start: 1e-6
+grad_clip: 4.0
+ema_halflife: 8
+
+# --- Structural / graph (pocket, noise, fragmentation) ---
+lig_coordinate_distance_noise: 0.0
+prot_coordinate_distance_noise: 0.02
+pocket_com_noise: 1.0
+pocket_distance_noise: 0.5
+alignment_rmsd_tolerance: 1.0
+
+# --- Flags (set true in SLURM script) ---
+force_retry: true
+include_protein_ligand_interactions: true
+pb_check: true
+random_rotation: true
+# Optional (commented in script):
+resume_from_checkpoint: null

@@ -1,0 +1,5 @@
+_target_: sigmadock.experiments.ExperimentConfig
+name: "pdbbind-core"
+dataset: "pdbbind/core-set/"
+pdb_regex: ".*pocket\\.pdb$"                            # anything ending in “pocket.pdb"
+sdf_regex: ".*ligand.*\\.sdf$"

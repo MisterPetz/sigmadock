@@ -1,0 +1,6 @@
+_target_: sigmadock.experiments.ExperimentConfig
+name: "posebusters"
+dataset: "posebusters_paper/posebusters_benchmark_set/"
+pdb_regex: ".*\\.pdb$"                                  # all .pdb files
+sdf_regex: ".*ligands.sdf$"                          # default path containing ligand ending in .sdf
+# ref_sdf_regex: "reference\.sdf"   # optional: use this SDF in each folder for pocket definition

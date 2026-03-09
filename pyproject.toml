@@ -1,0 +1,134 @@
+[build-system]
+requires = ["setuptools>=42"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "SigmaDock"
+readme = "README.md"
+version = "1.0.0"
+description = "SigmaDock: Untwisting Molecular Docking with SE(3) Fragmented Diffusion"
+authors = [
+    {name = "Alvaro Prat", email = "alvaro.prat@stats.ox.ac.uk"},
+    {name = "Leo Zhang", email = "leo.zhang@stx.ox.ac.uk"},
+]
+dependencies = [
+    "numpy",
+    "torch",
+    "pytorch-lightning",
+    "e3nn",
+    "torch-geometric",
+    "rdkit",
+    "biopython",
+    "tqdm",
+    "matplotlib",
+    "scipy",
+    "esm",
+]
+requires-python = ">=3.9, <3.12"
+license = {file = "LICENSE"}
+
+[project.optional-dependencies]
+train = [
+    "wandb",
+    "torchsummary",
+    "hydra-core",
+    "omegaconf",
+    "posebusters",
+    ]
+dev = [
+    "pre-commit",
+    "ruff",
+    "black",
+    "flake8",
+    "mypy",
+    "ipykernel",
+    "torchinfo",
+    "notebook",
+    "jupyterlab",
+]
+test = [
+    "pytest",
+    "seaborn",
+    "plotly",
+    "py3Dmol",
+    "spyrmsd",
+    "pytest-cov"
+]
+
+# Script Entrypoints
+[project.scripts]
+training = "scripts.train:main"
+sampling = "scripts.sample:main"
+
+[tool.setuptools.packages.find]
+where = ["src", "scripts"]
+include = ["sigmadock*", "scripts*"]
+
+[tool.mypy]
+ignore_missing_imports = false
+
+[tool.ruff]
+# Exclude commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+    "src/sigmadock/net/",
+]
+
+# Same as Black.
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+extend-select = [
+    "I",  # isort (import sorting)
+    "E",  # Pycodestyle (formatting, indentation, whitespace)
+    "F",  # Pyflakes (unused imports, undefined variables)
+    "B",  # flake8-bugbear (common bugs, performance issues)
+    "C",  # flake8-comprehensions (better use of comprehensions)
+    "SIM",  # flake8-simplify (simplifies code logic)
+    "UP",  # pyupgrade (modern Python syntax)
+    "RUF",  # Ruff-specific rules
+    "ANN",  # flake8-annotations (type annotations)
+]
+select = ["E4", "E7", "E9", "F"]
+ignore = ["ANN401", "F841"]
+
+# Allow fix for all enabled rules (when `--fix`) is provided.
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when underscore-prefixed.
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+docstring-code-format = false
+docstring-code-line-length = "dynamic"

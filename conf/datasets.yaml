@@ -1,0 +1,24 @@
+posebusters:
+    dataset: "posebusters_paper/posebusters_benchmark_set/"
+    pdb_regex: ".*\\.pdb$"                                   # all .pdb files
+    sdf_regex: ".*ligands.*\\.sdf$"                          # any path containing “ligand” ending in “.sdf”
+
+astex:
+    dataset: "posebusters_paper/astex_diverse_set/"
+    pdb_regex: ".*\\.pdb$"                                   # all .pdb files
+    sdf_regex: ".*ligands.*\\.sdf$"
+
+pdbbind-core:
+    dataset: "pdbbind/core-set/"
+    pdb_regex: ".*pocket\\.pdb$"                            # anything ending in “pocket.pdb"
+    sdf_regex: ".*ligand.*\\.sdf$"
+
+pdbbind-refined:
+    dataset: "pdbbind/refined-set/"
+    pdb_regex: ".*pocket\\.pdb$"                            # anything ending in “pocket.pdb"
+    sdf_regex: ".*ligand.*\\.sdf$"
+
+pdbbind-general:
+    dataset: "pdbbind/general-set/"
+    pdb_regex: ".*pocket\\.pdb$"                            # anything ending in “pocket.pdb"
+    sdf_regex: ".*ligand.*\\.sdf$"

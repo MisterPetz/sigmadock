@@ -1,0 +1,7 @@
+# Cross-docking on notebooks/dummy_data: query_*.sdf = ligands to dock, *_ligand.sdf = reference for pocket/CoM
+_target_: sigmadock.experiments.ExperimentConfig
+name: "dummy_crossdock"
+dataset: "dummy_data"
+pdb_regex: ".*\\.pdb$"
+sdf_regex: "query_.*\\.sdf$"
+ref_sdf_regex: ".*_ligand\\.sdf$"

@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.9.7
+    hooks:
+      # Run the linter.
+      - id: ruff
+        types_or: [ python, pyi ]
+        args: 
+          - "--fix"
+        exclude: ".*\\.ipynb$"
+      # Run the formatter.
+      - id: ruff-format
+        types_or: [ python, pyi ]
+        exclude: ".*\\.ipynb$"

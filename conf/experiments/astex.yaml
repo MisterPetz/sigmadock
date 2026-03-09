@@ -1,0 +1,6 @@
+_target_: sigmadock.experiments.ExperimentConfig
+name: "astex"
+dataset: "posebusters_paper/astex_diverse_set/"
+pdb_regex: ".*\\.pdb$"                                   # all .pdb files
+sdf_regex: ".*ligands.sdf$"                     # default path containing “ligand” ending in “.sdf”  
+# sdf_regex: ".*ligand.sdf$"                     # default path containing “ligand” ending in “.sdf”  
