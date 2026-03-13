@@ -209,7 +209,7 @@ def load_from_scratch(  # noqa: C901
     denoiser = SigmaDockDenoiser(model=equi, **denoiser_cfg)
 
     # 7) load LightningModule once, supplying denoiser
-    model = SigmaLightningModule.load_from_checkpoint(str(ckpt), denoiser=denoiser, strict=strict, map_location="cpu")
+    model = SigmaLightningModule.load_from_checkpoint(str(ckpt), denoiser=denoiser, strict=strict, map_location="cpu", weights_only=False)
 
     ema_model = deepcopy(model)
     if load_ema:

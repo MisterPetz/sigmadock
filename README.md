@@ -173,6 +173,24 @@ Checkpoints and logs are written under the experiment directory (default: `exp_d
 
 You can set different hyperparameters for the main training script. We recommend using the default in `/conf/training/slurm.yaml`
 
+## Using the released checkpoint
+
+A pretrained checkpoint is provided with the current GitHub release (see this repository's **Releases** page). After downloading it, you can run sampling as follows:
+
+```bash
+python scripts/sample.py \
+  sampling.experiments.name=posebusters \
+  sampling.data.data_dir=/path/to/data \
+  sampling.model.ckpt_dir=/path/to/downloaded_checkpoint.ckpt
+```
+
+If you use the SLURM sampling script in `slurm/sample.sh`, set:
+
+```bash
+export CKPT_DIR=/path/to/downloaded_checkpoint.ckpt
+sbatch slurm/sample.sh
+```
+
 ---
 
 ## Sampling
@@ -203,7 +221,6 @@ python scripts/sample.py --config-name sampling/base --config-path conf/
 To use `postprocessing.scoring: "vina"` or `"vinardo"`, the GNINA binary must be on your `PATH`. Two options:
 
 1. **Manual install**: Download the GNINA binary from [GNINA releases](https://github.com/gnina/gnina/releases) (e.g. [v1.3.2](https://github.com/gnina/gnina/releases/download/v1.3.2/gnina.1.3.2)), rename it to `gnina`, make it executable (`chmod +x gnina`), and place it in a directory on your `PATH` (e.g. `~/bin` or your conda env’s `bin/`). If you use a conda env, you may need cuDNN/CUDA in that env and `LD_LIBRARY_PATH` set so `gnina` can run; see the script below for a full setup.
-
 2. **Automated env setup (SLURM)**: The script `slurm/env_setup.sh` creates a conda environment and optionally installs the GNINA binary (`INSTALL_GNINA=true`). Use it as a reference for a repeatable GNINA install (e.g. on a cluster).
 
 ---
@@ -213,6 +230,7 @@ To use `postprocessing.scoring: "vina"` or `"vinardo"`, the GNINA binary must be
 Example scripts live in `slurm/`. See `slurm/README.md` for usage.
 
 **Quick start:**
+
 ```bash
 # 1. Create env (once)
 bash slurm/env_setup.sh
