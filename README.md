@@ -31,7 +31,7 @@ This repository supports **training**, **sampling**, and **evaluation** for the 
 
 ### Requirements
 
-- **Python** ≥3.9, <3.12  
+- **Python** ≥3.9, <3.13  
 - **CUDA** (for GPU training/sampling)
 
 ### From source (recommended)
@@ -40,10 +40,19 @@ This repository supports **training**, **sampling**, and **evaluation** for the 
 git clone https://github.com/alvaroprat97/sigmadock.git
 cd sigmadock
 
-conda create -y -n sigmadock python=3.11
+conda create -y -n sigmadock python=3.12
 conda activate sigmadock
 
-pip install -e ".[train,dev,test]"
+bash install.sh 
+
+```
+Specify your own cuda version if necessary (i.e. cu121):
+```bash
+bash install.sh cu121
+```
+Or also specify which extras you want (i.e train and test only):
+```bash
+bash install.sh cu126 train,test
 ```
 
 **Extra dependencies:**

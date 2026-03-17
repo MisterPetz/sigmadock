@@ -6,7 +6,7 @@
 # Set DATA_DIR and optionally PROJECT_DIR before submitting, or edit below.
 #
 # ------------------------------- SBATCH (customize for your cluster) -------------------------------
-#SBATCH --job-name=sigmadock
+#SBATCH --job-name=sigmadock-training
 #SBATCH --nodes=1
 #SBATCH --gpus=4
 #SBATCH --ntasks-per-node=4
@@ -38,11 +38,7 @@ NGPUS=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L 2>/dev/null | wc -l)}
 [[ "$NGPUS" -lt 1 ]] && NGPUS=1
 NUM_WORKERS=$((${SLURM_CPUS_PER_TASK:-8} - 3))
 
-torchrun \
-  --standalone \
-  --nnodes=1 \
-  --nproc_per_node=$NGPUS \
-  scripts/train.py \
+srun scripts/train.py \
   --config conf/training/slurm.yaml \
   --data_dir "${DATA_DIR}" \
   --num_workers "${NUM_WORKERS}" \

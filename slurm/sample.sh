@@ -9,17 +9,16 @@
 # Optional: PROJECT_DIR, DATA_DIR, OUTPUT_DIR, CONDA_ENV, EXPERIMENT (default: posebusters)
 #
 # ------------------------------- SBATCH (customize for your cluster) -------------------------------
-#SBATCH --job-name=sigmasampling
+#SBATCH --job-name=sigmadock-sampling
 #SBATCH --nodes=1
 #SBATCH --gpus=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
-#SBATCH --mem=32Gb
 #SBATCH --time=01:00:00
 #SBATCH --output=slurm_logs/%j.out
 #SBATCH --error=slurm_logs/%j.err
 # For array jobs, uncomment:
-# #SBATCH --array=0-39%8
+# #SBATCH --array=0-39
 
 # ------------------------------- Configuration -------------------------------
 PROJECT_DIR="${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-.}}"

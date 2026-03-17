@@ -33,16 +33,18 @@ source "$(conda info --base)/etc/profile.d/conda.sh"
 
 if conda env list | grep -q "^${CONDA_ENV} "; then
   echo "Conda env ${CONDA_ENV} already exists. Activating..."
+  conda activate "${CONDA_ENV}" || exit 1
 else
-  echo "Creating conda env ${CONDA_ENV}..."
-  conda create -y -n "${CONDA_ENV}" -c conda-forge python=3.11
+  echo "Creating conda env '${CONDA_ENV}'..."
+  conda create -y -n "${CONDA_ENV}" python=3.11 || { echo "ERROR: Conda create failed"; exit 1; }
+  
+  echo "Activating '${CONDA_ENV}'..."
+  conda activate "${CONDA_ENV}" || exit 1
+  
+  echo "Running install.sh to install PyTorch and SigmaDock..."
+  bash install.sh || { echo "ERROR: install.sh failed"; exit 1; }
 fi
 
-conda activate "${CONDA_ENV}" || exit 1
-
-# ------------------------------- Install package -------------------------------
-pip install --upgrade pip setuptools build
-pip install -e ".[train]" || { echo "ERROR: pip install failed"; exit 1; }
 
 # ------------------------------- Gnina (for sampling rescoring) -------------------------------
 if [[ "${INSTALL_GNINA}" == "true" ]]; then
