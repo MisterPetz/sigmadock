@@ -52,6 +52,7 @@ test = [
     "seaborn",
     "plotly",
     "py3Dmol",
+    "ipywidgets",
     "spyrmsd",
     "pytest-cov"
 ]
