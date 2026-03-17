@@ -1,10 +1,8 @@
 import sys
 from typing import Any, Literal
 
-import numpy as np
 import pytorch_lightning as pl
 import torch
-import wandb
 from torch import optim
 from torch.nn.utils import clip_grad_norm_  # noqa
 from torch.optim import lr_scheduler

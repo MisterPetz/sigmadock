@@ -63,8 +63,8 @@ class SigmaDataset(Dataset):
         # Pocket Definition
         pocket_com_cutoff: float = 6.0,
         pocket_distance_cutoff: float = 6.0,
-        pocket_com_noise: float = 1.0,
-        pocket_distance_noise: float = 1.0,
+        pocket_com_noise: float = 0.5,
+        pocket_distance_noise: float = 0.5,
         prot_coordinate_distance_noise: float = 0.05,
         lig_coordinate_distance_noise: float = 0,
         # Cutoffs / Outliers. If negative, they are ignored.
