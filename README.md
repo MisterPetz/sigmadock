@@ -3,7 +3,7 @@
 Official implementation of:
 
 > **SigmaDock: Untwisting Molecular Docking with Fragment-Based SE(3) Diffusion**  
-> Alvaro Prat, Leo Zhang, Charlotte Dean, Yee Whye Teh, Garrett Morris  
+> Alvaro Prat, Leo Zhang, Charlotte Deane, Yee Whye Teh, Garrett Morris  
 > *International Conference on Learning Representations (ICLR), 2026*
 
 This repository supports **training**, **sampling**, and **evaluation** for the ICLR submission.
