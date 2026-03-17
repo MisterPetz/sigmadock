@@ -1,4 +1,4 @@
-# SigmaDock
+# SigmaDock :fire:
 
 Official implementation of:
 
@@ -10,7 +10,7 @@ This repository supports **training**, **sampling**, and **evaluation** for the 
 
 **Contact:** [alvaro.prat@stats.ox.ac.uk](mailto:alvaro.prat@stats.ox.ac.uk) · or open an issue. We will reply as soon as possible!
 
-> **Note:** This is a beta release. APIs and behaviour may change in future versions.
+**⚠️ Please Note** this is a beta release. APIs and behaviour may change in future versions. Stay tuned!
 
 ---
 
@@ -294,7 +294,7 @@ If GNINA is installed, ranking can use Vina/Vinardo scores via config; otherwise
 
 ## Citation
 
-If you use this work in your research, please cite:
+If you use this work in your research, please cite us:
 
 ```bibtex
 @inproceedings{pratSigmadock2026,
