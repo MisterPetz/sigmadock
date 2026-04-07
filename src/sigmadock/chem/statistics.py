@@ -120,10 +120,12 @@ def compact_posebusting(results: dict[str, list[dict[str, Any]]], config: str = 
     all_pb_checks: dict[int, float] = {}
     all_pb_dicts: dict[int, dict[str, bool]] = {}
 
-    pbc = posebusters.PoseBusters(
-        config=config,
-        max_workers=0,
-    )
+    pbc_cache: dict[str, posebusters.PoseBusters] = {}
+
+    def _pbc(name: str) -> posebusters.PoseBusters:
+        if name not in pbc_cache:
+            pbc_cache[name] = posebusters.PoseBusters(config=name, max_workers=0)
+        return pbc_cache[name]
 
     for mol_id_i, per_mol_out in tqdm(results.items()):
         # Note it only does this for a SINGLE seed
@@ -134,6 +136,10 @@ def compact_posebusting(results: dict[str, list[dict[str, Any]]], config: str = 
         x0_hat = sample["x0_hat"]
         pred_lig = get_mol_from_coords(x0_hat, ref_lig)
         ref_pocket = sample["prot_ref"]
+
+        # Cross-docking (separate reference SDF for pocket): use ``dock`` checks, not cognate ``redock`` identity tests.
+        eff_config = "dock" if sample.get("crossdocking") else config
+        pbc = _pbc(eff_config)
 
         _, s_rmsd = compute_rmsd(pred_lig, ref_lig)  # we only use srmsd
         pb_dict, avg_pb_checks = compute_pb_checks(pred_lig, ref_lig, ref_pocket, pbc)

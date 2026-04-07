@@ -6,7 +6,7 @@
 # For array jobs: sbatch --array=0-39%8 slurm/sample.sh
 #
 # Required: Set CKPT_DIR to your model checkpoint path.
-# Optional: PROJECT_DIR, DATA_DIR, OUTPUT_DIR, CONDA_ENV, EXPERIMENT (default: posebusters)
+# Optional: PROJECT_DIR, DATA_DIR, OUTPUT_DIR, CONDA_ENV, EXPERIMENT (if set, e.g. posebusters or astex; unset = custom inference — set inference.inference_datafront or inference.ligand_sdf+inference.protein_pdb in extra args / yaml)
 #
 # ------------------------------- SBATCH (customize for your cluster) -------------------------------
 #SBATCH --job-name=sigmadock-sampling
@@ -26,7 +26,7 @@ CKPT_DIR="${CKPT_DIR:?Set CKPT_DIR to your model checkpoint path}"
 DATA_DIR="${DATA_DIR:-${PROJECT_DIR}/data}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/sampling_output}"
 CONDA_ENV="${CONDA_ENV:-sigmadock}"
-EXPERIMENT="${EXPERIMENT:-posebusters}"
+EXPERIMENT="${EXPERIMENT:-}"
 
 TASK_ID=${SLURM_ARRAY_TASK_ID:-0}
 
@@ -40,18 +40,21 @@ if command -v conda &>/dev/null; then
 fi
 
 # ------------------------------- Run sampling -------------------------------
-# Note num_seeds is set to 1 for full reproducibility.
-# Note default set to redocking, not cross-docking, since we are not using the reference SDF here.
-python scripts/sample.py \
-  sampling.experiments.name="${EXPERIMENT}" \
-  sampling.run_tag="conformer_sampling" \
-  sampling.graph.sample_conformer=true \
-  sampling.experiments.sdf_regex=".*ligands.sdf$" \
-  sampling.seed=${TASK_ID} \
-  sampling.output_dir="${OUTPUT_DIR}" \
-  sampling.data.data_dir="${DATA_DIR}" \
-  sampling.hardware.devices=auto \
-  sampling.num_seeds=1 \
-  sampling.graph.fragmentation_strategy=canonical \
-  sampling.model.ckpt_dir="${CKPT_DIR}" \
+# num_seeds=1 for reproducibility. Add experiment=posebusters (or astex, etc.) for a named benchmark.
+SAMPLING_ARGS=(
+  ckpt="${CKPT_DIR}"
+  data_dir="${DATA_DIR}"
+  run_tag="sampling"
+  graph.sample_conformer=true
+  seed="${TASK_ID}"
+  output_dir="${OUTPUT_DIR}"
+  hardware.devices=auto
+  num_seeds=1
+  graph.fragmentation_strategy=canonical
   hydra.run.dir="${OUTPUT_DIR}/hydra_out"
+)
+if [[ -n "${EXPERIMENT}" ]]; then
+  SAMPLING_ARGS+=(experiment="${EXPERIMENT}" experiments.sdf_regex=".*ligands.sdf$")
+fi
+
+python scripts/sample.py "${SAMPLING_ARGS[@]}"

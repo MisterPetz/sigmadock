@@ -35,7 +35,7 @@ class SigmaDockDenoiser(nn.Module):
         max_sigma: float = 1.5,
         num_sigma: int = 1000,
         num_omega: int = 2000,
-        cache_path: str | Path = Path("sigmadock/diff/cache"),
+        cache_path: str | Path = Path("cache"),
         use_cached_score: bool = True,
         L: int = 1000,
         # Rot Score Options

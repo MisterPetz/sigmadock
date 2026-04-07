@@ -18,7 +18,24 @@ python setup_crossdock_queries.py
 
 ## Using this for cross-docking sampling
 
-- **Ligands to dock (queries):** use regex **`query_.*\.sdf`** so that only the cross-docking query SDFs are used as inputs.
-- **Reference (for metrics):** use **`.*_ligand\.sdf`** as the native/reference ligand for the current complex (one reference per folder).
+- **Ligands to dock (queries):** use regex `query_.*\.sdf` so that only the cross-docking query SDFs are used as inputs.
+- **Reference (for metrics):** use `.*_ligand\.sdf` as the native/reference ligand for the current complex (one reference per folder).
 
 So for each `PDB_LIG` folder you dock all `query_*.sdf` molecules into that folder’s protein; the reference pose for evaluation is `PDB_LIG_ligand.sdf`.
+
+## Sampling via `inference_datafront.csv`
+
+`inference_datafront.csv` lists **every** `query_*.sdf` in each complex folder as one row: `PDB` = `*_protein.pdb`, `SDF` = query, `REF_SDF` = `*_ligand.sdf`. Paths are **relative to this directory**. Run from the **repo root**:
+
+```bash
+python scripts/sample.py \
+  ckpt=/path/to/checkpoint.ckpt \
+  inference.inference_datafront=notebooks/dummy_data/inference_datafront.csv
+```
+
+No `data_dir` is required when using this CSV (the CSV’s directory is used as the data root). After adding complexes or re-running `setup_crossdock_queries.py`, regenerate the inference set:
+
+```bash
+python notebooks/dummy_data/build_inference_datafront_csv.py
+```
+
