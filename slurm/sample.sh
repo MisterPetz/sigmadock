@@ -6,7 +6,7 @@
 # For array jobs: sbatch --array=0-39%8 slurm/sample.sh
 #
 # Required: Set CKPT_DIR to your model checkpoint path.
-# Optional: PROJECT_DIR, DATA_DIR, OUTPUT_DIR, CONDA_ENV, EXPERIMENT (default: posebusters)
+# Optional: PROJECT_DIR, DATA_DIR, OUTPUT_DIR, CONDA_ENV, EXPERIMENT (if set, e.g. posebusters or astex; unset = custom inference — set inference.inference_datafront or inference.ligand_sdf+inference.protein_pdb in extra args / yaml)
 #
 # ------------------------------- SBATCH (customize for your cluster) -------------------------------
 #SBATCH --job-name=sigmadock-sampling
@@ -53,3 +53,9 @@ python scripts/sample.py \
   sampling.graph.fragmentation_strategy=canonical \
   sampling.model.ckpt_dir="${CKPT_DIR}" \
   hydra.run.dir="${OUTPUT_DIR}/hydra_out"
+)
+if [[ -n "${EXPERIMENT}" ]]; then
+  SAMPLING_ARGS+=(experiment="${EXPERIMENT}" experiments.sdf_regex=".*ligands.sdf$")
+fi
+
+python scripts/sample.py "${SAMPLING_ARGS[@]}"

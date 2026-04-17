@@ -43,14 +43,17 @@ cd sigmadock
 conda create -y -n sigmadock python=3.12
 conda activate sigmadock
 
-bash install.sh 
-
+bash install.sh
 ```
+
 Specify your own cuda version if necessary (i.e. cu121):
+
 ```bash
 bash install.sh cu121
 ```
+
 Or also specify which extras you want (i.e train and test only):
+
 ```bash
 bash install.sh cu126 train,test
 ```
@@ -91,11 +94,11 @@ Place all benchmark data under a single **data root** (e.g. `data/`).
 Each experiment uses a **subdirectory** of the data root. Inside that subdirectory you must have **one folder per complex**. Each complex folder must contain:
 
 
-| File type            | Required | Description                                                                                                                                                                                                                               |
-| -------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Protein**          | Yes      | One `.pdb` file matching the experiment’s `pdb_regex` (e.g. pocket or full structure).                                                                                                                                                    |
-| **Ligand(s)**        | Yes      | One or more ligand files (**.sdf**) matching the experiment’s `sdf_regex`. These are the molecules to dock. If an SDF has no valid, sanitized ligands, the loader will try a `**.mol2`** file with the same base name in the same folder. |
-| **Reference ligand** | Optional | One **.sdf** matching `ref_sdf_regex` (if set). Used to define the pocket and centre-of-mass when it differs from the ligand being docked (e.g. **cross-docking**). Similar to the **--autobox** option.                                  |
+| File type            | Required | Description                                                                                                                                                     |
+| -------------------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Protein**          | Yes      | One `.pdb` file matching the experiment’s `pdb_regex` (e.g. pocket or full structure).                                                                          |
+| **Ligand(s)**        | Yes      | One or more ligand files (`*.sdf`) matching the experiment’s `sdf_regex`. If an SDF fails validation, the loader tries a same-stem `*.mol2` in the same folder. |
+| **Reference ligand** | Optional | One `.sdf` matching `ref_sdf_regex` (if set): pocket / CoM when it differs from the query ligand (e.g. **cross-docking**). Similar in spirit to **--autobox**.  |
 
 
 **Example — re-docking (one ligand per complex):**
@@ -124,7 +127,7 @@ Experiment subdirs and regexes are defined in `conf/experiments/*.yaml`. Key opt
 
 - `**pdb_regex**` — pattern for the protein PDB (e.g. `.*pocket\.pdb$`).
 - `**sdf_regex**` — pattern for the **ligand file(s) to dock** (e.g. `.*ligand.*\.sdf$` or `query_.*\.sdf$` for cross-docking).
-- `**ref_sdf_regex`** — *(optional)* pattern for the **reference** ligand SDF used only for pocket definition and CoM. Omit for re-docking (same file as ligand); set for cross-docking so pocket is defined from the native pose.
+- `**ref_sdf_regex`** — *(optional)* reference ligand SDF for pocket definition and CoM only. Omit for re-docking; set for cross-docking.
 
 ### PDBBind
 
@@ -143,7 +146,7 @@ Configs in `conf/experiments/` use `pdb_regex: ".*pocket\\.pdb$"` and `sdf_regex
 2. **Arrange** so each complex has a folder with a `.pdb` and `ligands.sdf` (or whatever regex is used in `conf/experiments/posebusters.yaml`).
 3. **Place** under the data root, e.g.:
   - `<data_root>/posebusters_paper/posebusters_benchmark_set/<id>/...`
-  - Optional whitelist: `<data_root>/posebusters_paper/posebusters_correct_ids.txt` (one PDB/system ID per line). Set `sampling.data.blacklist` to this file to run only on those IDs.
+  - Optional ID list: `<data_root>/posebusters_paper/posebusters_correct_ids.txt` (one PDB/system ID per line). With `experiment=posebusters`, pass `data.blacklist=<path>` to restrict to those IDs.
 
 ### Astex (PoseBusters-style)
 
@@ -187,10 +190,7 @@ You can set different hyperparameters for the main training script. We recommend
 A pretrained checkpoint is provided with the current GitHub release (see this repository's **Releases** page). After downloading it, you can run sampling as follows:
 
 ```bash
-python scripts/sample.py \
-  sampling.experiments.name=posebusters \
-  sampling.data.data_dir=/path/to/data \
-  sampling.model.ckpt_dir=/path/to/downloaded_checkpoint.ckpt
+python scripts/sample.py ckpt=/path/to/downloaded_checkpoint.ckpt data_dir=/path/to/data experiment=posebusters
 ```
 
 If you use the SLURM sampling script in `slurm/sample.sh`, set:
@@ -204,33 +204,68 @@ sbatch slurm/sample.sh
 
 ## Sampling
 
-Sampling uses **Hydra** and the config under `conf/sampling/base.yaml`. Run from the project root so relative paths resolve correctly:
+Sampling uses **Hydra** with `conf/sampling/base.yaml`. From the project root:
 
 ```bash
-python scripts/sample.py \
-  sampling.experiments.name=posebusters \
-  sampling.data.data_dir=/path/to/data \
-  sampling.model.ckpt_dir=/path/to/checkpoint.ckpt \
-  sampling.data.batch_size=16 # Depending on your GPU-RAM
+python scripts/sample.py ckpt=/path/to/checkpoint.ckpt data_dir=/path/to/data experiment=posebusters data.batch_size=16
 ```
 
-Or with a YAML override:
+`experiment` selects `conf/experiments/<name>.yaml` (optional regex overrides under `experiments.*`).
+
+YAML-only invocation:
 
 ```bash
 python scripts/sample.py --config-name sampling/base --config-path conf/
 ```
 
-**Post-processing:**
+### Custom inference (`experiments.name` null — the default)
 
-- **Scoring**: In `conf/sampling/base.yaml`, set `postprocessing.scoring` to `"vina"` or `"vinardo"` to use **GNINA** for rescoring/ranking poses. If GNINA is not installed, the pipeline still runs and selects the best pose using heuristic, cheaper physicochemical metrics (no external binary required).
-- **PoseBusters**: Set `postprocessing.bust_config` to `"redock"` or `"redock-fast"` to run PoseBusters checks. Notebooks can show ranking by PoseBusters only.
+**Note:** each query SDF path is expected to contain **a single ligand**. Files with multiple records are not expanded into separate runs. Prefer one ligand per file, or one CSV row per ligand SDF.
 
-**Installing GNINA (optional, for Vina/Vinardo rescoring)**
+1. **Explicit files** — optional `data_dir`; if omitted, defaults to the protein PDB’s parent directory (used as the logical data root for Hydra paths):
+  ```bash
+   python scripts/sample.py \
+     ckpt=/path/to/checkpoint.ckpt \
+     inference.ligand_sdf=/path/to/query.sdf \
+     inference.protein_pdb=/path/to/pocket.pdb \
+     inference.reference_sdf=/path/to/reference.sdf
+  ```
+   Omit `inference.reference_sdf` for re-docking.
+2. **CSV datafront** — set `inference.inference_datafront` to a CSV with columns **PDB** and **SDF** (required), and optionally **REF_SDF** (or **REFERENCE_SDF** / **REF**). Paths in the CSV may be absolute, or **relative to the folder that contains the CSV**. Example `inference_datafront.csv`:
+  ```csv
+   PDB,SDF,REF_SDF
+   structures/1abc_pocket.pdb,structures/query_1.sdf,structures/1abc_ref.sdf
+   structures/1abc_pocket.pdb,structures/query_2.sdf,structures/1abc_ref.sdf
+  ```
+
+### Outputs and multiple seeds
+
+For **custom inference** (no `experiment=...`), sampling writes under `<output_dir>/results/<run_tag>/<model_id>/seed_<cfg.seed>/` and runs with defaults: 
+
+- `output_dir` = project root
+- `run_tag` = `sampling`
+- `model_id` from the checkpoint filename unless `model.model_id` is set.
+
+**Multiple draws (ranking / top-from-N):** for **full reproducibility**, keep `**num_seeds: 1`** and launch **separate runs** with different `seed` values. We recommend launching a **SLURM job array** (`slurm/sample.sh` wires `seed` to the array task). Each run writes its own `results/.../seed_<seed>/` tree. 
+
+- **Rescoring** and **PoseBusters** run per job, and you can aggregate across directories with `sigmadock.chem.statistics`. Prefer job arrays over `num_seeds > 1` in a single process when you want independent, pinned samples (and to avoid an effective batch size of `batch_size × num_seeds`).
+
+### Post-processing
+
+- **ReScoring:** in `conf/sampling/base.yaml`, set `postprocessing.scoring` to `"vina"` or `"vinardo"` to use **GNINA** for rescoring/ranking. If GNINA is not installed, the pipeline still runs with a lighter heuristic (no external binary). We recommend using physics-based rescoring when available.
+- **PoseBusters:** set `postprocessing.bust_config` to `"redock"` or `"redock-fast"` to run checks, or `null` to skip. If a row used a **reference SDF** for the pocket (cross-docking), it is evaluated with the `**dock`** preset instead of `redock`, even when `bust_config` is `redock`. Notebooks often rank by PoseBusters only for simplicity.
+
+### Installing GNINA (Vina / Vinardo scoring)
 
 To use `postprocessing.scoring: "vina"` or `"vinardo"`, the GNINA binary must be on your `PATH`. Two options:
 
-1. **Manual install**: Download the GNINA binary from [GNINA releases](https://github.com/gnina/gnina/releases) (e.g. [v1.3.2](https://github.com/gnina/gnina/releases/download/v1.3.2/gnina.1.3.2)), rename it to `gnina`, make it executable (`chmod +x gnina`), and place it in a directory on your `PATH` (e.g. `~/bin` or your conda env’s `bin/`). If you use a conda env, you may need cuDNN/CUDA in that env and `LD_LIBRARY_PATH` set so `gnina` can run; see the script below for a full setup.
-2. **Automated env setup (SLURM)**: The script `slurm/env_setup.sh` creates a conda environment and optionally installs the GNINA binary (`INSTALL_GNINA=true`). Use it as a reference for a repeatable GNINA install (e.g. on a cluster).
+1. **Automated env (SLURM):** The script `slurm/env_setup.sh` creates a conda environment and optionally installs the GNINA binary (`INSTALL_GNINA=true`). Use it as a reference for a repeatable GNINA install (e.g. on a cluster).
+
+2. **Manual install:** download from [GNINA releases](https://github.com/gnina/gnina/releases) (e.g. [v1.3.2](https://github.com/gnina/gnina/releases/download/v1.3.2/gnina.1.3.2)), rename to `gnina`, make it executable (`chmod +x gnina`), and add to `PATH` (you may need matching CUDA/cuDNN in the same environment).
+
+### Custom ranking and top-k-from-N
+
+GNINA/Vinardo and PoseBusters are **defaults**, not a requirement for **how** you rank poses or define **top-k-from-N**. With predictions (and optional per-seed scores) under `results/.../seed_*/`, you may use **any** scoring function. `sigmadock.chem.statistics` provides helpers to aggregate across seeds and sort (`collect_posebusters`, `collect_scores`, `sort_statistics_for_top_k`, `compute_top_k_statistics`, `compute_heuristic`); you can also rank directly from the saved `.pt` files.
 
 ---
 
@@ -248,9 +283,10 @@ bash slurm/env_setup.sh
 export DATA_DIR=/path/to/data
 sbatch slurm/train.sh
 
-# 3. Sampling
+# 3. Sampling (optional: EXPERIMENT=posebusters or astex; omit for CSV / explicit inference.* paths)
 export CKPT_DIR=/path/to/checkpoint.ckpt
 export DATA_DIR=/path/to/data
+export EXPERIMENT=posebusters
 sbatch slurm/sample.sh
 ```
 
@@ -260,7 +296,7 @@ Edit `#SBATCH` directives in each script for your cluster (partition, output pat
 
 ## Notebooks
 
-Notebooks in `**notebooks/**` give a short, reproducible path from data to metrics.
+Notebooks in the `notebooks/` directory give a short, reproducible path from data to metrics. See `notebooks/README.md` for the full list (01–05, extensions).
 
 
 | Notebook                         | Description                                                                                                          |
@@ -281,13 +317,13 @@ If GNINA is installed, ranking can use Vina/Vinardo scores via config; otherwise
 ## Quick reference
 
 
-| Task      | Command / location                                                                |
-| --------- | --------------------------------------------------------------------------------- |
-| Install   | `pip install -e ".[train,dev,test]"`                                              |
-| Train     | `python scripts/train.py --data_dir <root> --train_exps ...`                      |
-| Sample    | `python scripts/sample.py sampling.data.data_dir=... sampling.model.ckpt_dir=...` |
-| Configs   | `conf/experiments/*.yaml`, `conf/sampling/base.yaml`                              |
-| Notebooks | `notebooks/` (visualise data/pocket; load model, sample, metrics)                 |
+| Task      | Command / location                                                      |
+| --------- | ----------------------------------------------------------------------- |
+| Install   | `pip install -e ".[train,dev,test]"`                                    |
+| Train     | `python scripts/train.py --data_dir <root> --train_exps ...`            |
+| Sample    | `python scripts/sample.py ckpt=... data_dir=... experiment=posebusters` |
+| Configs   | `conf/experiments/*.yaml`, `conf/sampling/base.yaml`                    |
+| Notebooks | `notebooks/` (visualise data/pocket; load model, sample, metrics)       |
 
 
 ---

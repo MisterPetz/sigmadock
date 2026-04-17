@@ -17,13 +17,19 @@ from torch_geometric.loader import DataLoader as GeometricDataLoader
 
 from sigmadock.chem.postprocessor import compute_gnina_score
 from sigmadock.chem.statistics import compact_posebusting
-from sigmadock.config import get_experiment_config
 from sigmadock.core.data import SampleCycleWrapper
 from sigmadock.data import SigmaDataset
 from sigmadock.datafronts import MetaFront
 from sigmadock.diff.denoiser import SigmaDockDenoiser
 from sigmadock.diff.sampling import sampler
 from sigmadock.oracle import HPARAMS
+from sigmadock.sampling_setup import (
+    build_sampling_datafront,
+    experiment_name_is_set,
+    prepare_sampling_cfg,
+    resolve_sampling_data_dir,
+    sampling_results_exp_name,
+)
 from sigmadock.trainer import SigmaLightningModule
 from sigmadock.utils import load_from_scratch
 
@@ -119,6 +125,7 @@ class SamplingModule(pl.LightningModule):
         ligand_path_all = batch.mol_info["ligand_path"]
         pdb_path_all = batch.mol_info["pdb_path"]
         seeds_all = batch.seed
+        ref_for_pocket_all = batch.mol_info.get("reference")
 
         # Get PDB-LIG code from pdb_path_all
         pdb_lig_codes: list[str] = ["_".join(Path(p).stem.split("_")[:2]) for p in pdb_path_all]
@@ -206,7 +213,11 @@ class SamplingModule(pl.LightningModule):
             ligand_path_i = ligand_path_all[mi] if (hasattr(ligand_path_all, "__getitem__")) else ligand_path_all
             pdb_path_i = pdb_path_all[mi] if (hasattr(pdb_path_all, "__getitem__")) else pdb_path_all
             pdb_lig_code_i = pdb_lig_codes[mi] if (hasattr(pdb_lig_codes, "__getitem__")) else pdb_lig_codes
-            
+            # One key per dataset item: same protein + different query SDFs (e.g. CSV datafront) must not
+            # collapse under pdb_lig_code alone, or PoseBusters sees multiple list entries per key.
+            lig_stem = Path(str(ligand_path_i)).stem
+            results_key = f"{pdb_lig_code_i}::{lig_stem}"
+
             # move to CPU and convert small scalars to python types
             com_i_cpu = com_i.detach().cpu() if torch.is_tensor(com_i) else com_i
             x0_i_cpu = x0_i.detach().cpu()
@@ -219,6 +230,14 @@ class SamplingModule(pl.LightningModule):
             if torch.is_tensor(seed_i) and getattr(seed_i, "numel", lambda: 1)() == 1:
                 seed_i = int(seed_i.item())
 
+            crossdocking_i = False
+            if ref_for_pocket_all is not None:
+                try:
+                    ref_p = ref_for_pocket_all[mi] if hasattr(ref_for_pocket_all, "__getitem__") else ref_for_pocket_all
+                    crossdocking_i = ref_p is not None
+                except (TypeError, IndexError, KeyError):
+                    crossdocking_i = False
+
             per_mol_out = {
                 "seed": seed_i,
                 "com": com_i_cpu,  # [3] tensor
@@ -230,12 +249,13 @@ class SamplingModule(pl.LightningModule):
                 "ligand_path": ligand_path_i,
                 "pdb_path": pdb_path_i,
                 "mol_id": mol_id_i,
+                "crossdocking": crossdocking_i,
             }
             # append one dict per molecule (per seed)
-            if pdb_lig_code_i in self.results:
-                self.results[pdb_lig_code_i].append(per_mol_out)
+            if results_key in self.results:
+                self.results[results_key].append(per_mol_out)
             else:
-                self.results[pdb_lig_code_i] = [per_mol_out]
+                self.results[results_key] = [per_mol_out]
         return out
 
     def _gather_python_objects(self, local_obj: Any) -> list:
@@ -282,15 +302,14 @@ class SamplingModule(pl.LightningModule):
         self.save_results(global_results)
 
     def get_out_dir(self) -> Path:
-        exp_name = str(self.cfg.experiments["name"])
+        exp_name = sampling_results_exp_name(self.cfg)
         global_seed = int(self.cfg.seed)
 
         model_id = (
             str(self.cfg.model.model_id) if self.cfg.model.model_id is not None else Path(self.cfg.model.ckpt_dir).stem
         )
-        run_tag = str(self.cfg.run_tag)
         root = PROJECT_ROOT if self.cfg.output_dir is None else Path(self.cfg.output_dir)
-        out_dir = root / "results" / exp_name / model_id / run_tag / f"seed_{global_seed}"
+        out_dir = root / "results" / exp_name / model_id / f"seed_{global_seed}"
         return out_dir
     
     @rank_zero_only
@@ -372,9 +391,9 @@ class SamplingModule(pl.LightningModule):
 
 
 @hydra.main(version_base=None, config_path="../conf/", config_name="sampling/base")
-def sample(globalCfg: DictConfig) -> None:
+def sample(global_cfg: DictConfig) -> None:
     """Run sampling with the given configuration."""
-    cfg = globalCfg.sampling
+    cfg = prepare_sampling_cfg(global_cfg)
 
     # Configure Hardware
     torch.set_float32_matmul_precision(cfg.hardware.cuda_precision)
@@ -387,33 +406,33 @@ def sample(globalCfg: DictConfig) -> None:
     seeds = torch.randint(0, 1000000, (cfg.num_seeds,), generator=generator).tolist()
     num_seeds: int = len(seeds)
     if num_seeds > 1:
-        print("This is not fully deterministic in DDP because we have global random states...")
-        print("JobArrays are prefere for full reproducibility if using DDP.")
-        raise ValueError("num_seeds > 1 is not supported in DDP for full reproducibility.")
+        print(
+            "[WARN] num_seeds>1 packs multiple stochastic draws into one job (effective batch_size * num_seeds); "
+            "reproducibility is weaker than separate runs."
+        )
+        print(
+            "[WARN] For full reproducibility and top-from-N over independent samples, use num_seeds=1 and "
+            "multiple runs with different `seed` (e.g. SLURM job array; see README and slurm/sample.sh)."
+        )
     print(f"Using {num_seeds} seeds: {seeds} generated with source seed {SEED}.")
 
     # Load directories
     CKPT_DIR = Path(cfg.model.ckpt_dir)
-    DATA_DIR = Path(cfg.data.data_dir)
-    if CKPT_DIR is None:
-        raise ValueError("Checkpoint directory (ckpt_dir) must be specified in the configuration.")
-    if DATA_DIR is None:
-        raise ValueError("Data directory (data_dir) must be specified in the configuration.")
+    if cfg.model.ckpt_dir is None or str(cfg.model.ckpt_dir).strip() == "":
+        raise ValueError("Checkpoint path (model.ckpt_dir) must be specified in the configuration.")
 
-    experiment_config = get_experiment_config(cfg.experiments.name, DATA_DIR)
-    if "sdf_regex" in cfg.experiments:
-        experiment_config.sdf_regex = cfg.experiments.sdf_regex
-    if "pdb_regex" in cfg.experiments:
-        experiment_config.pdb_regex = cfg.experiments.pdb_regex
-    if getattr(cfg.experiments, "ref_sdf_regex", None) is not None:
-        experiment_config.ref_sdf_regex = cfg.experiments.ref_sdf_regex
-    datafront = MetaFront([experiment_config])
-    if getattr(experiment_config, "ref_sdf_regex", None) is not None:
-        print(f"Using ref_sdf_regex for <Cross-Docking> pocket definition: {experiment_config.ref_sdf_regex}")
-    else:
-        print("No reference SDF found, using <Re-Docking> pocket definition.")
+    DATA_DIR = resolve_sampling_data_dir(cfg)
+    if not DATA_DIR.exists():
+        raise ValueError(f"Data directory does not exist: {DATA_DIR}")
 
-    if cfg.data.blacklist and cfg.experiments.name.lower() == "posebusters":
+    datafront = build_sampling_datafront(cfg, DATA_DIR)
+
+    if (
+        cfg.data.blacklist
+        and experiment_name_is_set(cfg.experiments.get("name"))
+        and str(cfg.experiments.name).lower() == "posebusters"
+        and isinstance(datafront, MetaFront)
+    ):
         print("Pruning datafront with (white) blacklist...")
         selected_ids = _load_pdbs_from_txt(Path(cfg.data.blacklist))
         datafront.prune_pairs_with_ids(selected_ids)
@@ -448,9 +467,8 @@ def sample(globalCfg: DictConfig) -> None:
         force_retry=True,
     )
 
-    # Wrap dataset on a stochastic cloner for num_seeds times such that it efficienty
-    # Samples a different fragmentation & distance noises from stochastic FRED fragmentation scheme defined
-    # Alternatively we can do this simply by running this as a JobArray with different seeds and num_seeds=1.
+    # num_seeds>1: repeat each dataset index num_seeds times (stochastic fragmentation per draw).
+    # Prefer num_seeds=1 + job array with different cfg.seed for reproducible independent runs (see README).
     recycle_dataset = (
         SampleCycleWrapper(
             base_dataset=dataset,
@@ -463,6 +481,10 @@ def sample(globalCfg: DictConfig) -> None:
     print(
         f"Effective batch size (batch_size x num_seeds): {cfg.data.batch_size} x {num_seeds} = {effective_batch_size}"
     )
+    if num_seeds > 1:
+        print(
+            "[WARN] Large effective batch from num_seeds>1 can OOM; consider num_seeds=1 and a job array instead."
+        )
 
     datamodule = SamplingDataModule(
         predict_dataset=recycle_dataset,

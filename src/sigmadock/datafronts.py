@@ -8,6 +8,39 @@ import torch
 from sigmadock.config import ExperimentConfig, get_experiment_config
 
 
+class ExplicitPairsFront:
+    """
+    Fixed (ligand_sdf, protein_pdb, reference_sdf?) paths for inference without a benchmark layout.
+
+    Same ``__len__`` / ``__getitem__`` protocol as ``MetaFront`` for use with ``SigmaDataset``.
+    """
+
+    def __init__(self, pairs: list[tuple[Path | str, Path | str, Optional[Path | str]]]) -> None:
+        self._pairs: list[tuple[Path, Path, Optional[Path]]] = []
+        for lig, pdb, ref in pairs:
+            lig_p = Path(lig).expanduser().resolve()
+            pdb_p = Path(pdb).expanduser().resolve()
+            ref_p = Path(ref).expanduser().resolve() if ref is not None else None
+            if not lig_p.is_file():
+                raise ValueError(f"ligand SDF is not a file: {lig_p}")
+            if not pdb_p.is_file():
+                raise ValueError(f"protein PDB is not a file: {pdb_p}")
+            if ref_p is not None and not ref_p.is_file():
+                raise ValueError(f"reference SDF is not a file: {ref_p}")
+            self._pairs.append((lig_p, pdb_p, ref_p))
+
+    def __len__(self) -> int:
+        return len(self._pairs)
+
+    def __getitem__(self, idx: int) -> tuple[Path, Path, Optional[Path]]:
+        if idx < 0 or idx >= len(self._pairs):
+            raise IndexError("Index out of range")
+        return self._pairs[idx]
+
+    def __repr__(self) -> str:
+        return f"ExplicitPairsFront(n={len(self._pairs)})"
+
+
 @dataclass
 class DataFront:
     dataroot: Path
