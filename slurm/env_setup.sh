@@ -17,7 +17,7 @@
 #SBATCH --error=slurm_logs/%j.err
 
 PROJECT_DIR="${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-.}}"
-CONDA_ENV="${CONDA_ENV:-sigmadock}"
+CONDA_ENV="${CONDA_ENV:-sigmadock_auto}"
 INSTALL_GNINA="${INSTALL_GNINA:-true}"
 
 cd "${PROJECT_DIR}" || exit 1
@@ -42,7 +42,7 @@ else
   conda activate "${CONDA_ENV}" || exit 1
   
   echo "Running install.sh to install PyTorch and SigmaDock..."
-  bash install.sh || { echo "ERROR: install.sh failed"; exit 1; }
+  bash install.sh cu128 || { echo "ERROR: install.sh failed"; exit 1; }
 fi
 
 

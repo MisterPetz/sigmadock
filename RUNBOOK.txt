@@ -1,0 +1,152 @@
+================================================================================
+SIGMADOCK RUNBOOK
+================================================================================
+
+Project: /home/prescout/software/sigmadock
+Conda env: sigmadock_auto
+Checkpoint: model/sample_checkpoint_0.ckpt
+
+--------------------------------------------------------------------------------
+1. ENVIRONMENT SETUP (first time only)
+--------------------------------------------------------------------------------
+
+If the conda environment does not exist yet, run:
+
+  bash slurm/env_setup.sh
+
+This creates the conda env "sigmadock_auto", installs PyTorch + SigmaDock,
+and installs gnina for rescoring.
+
+--------------------------------------------------------------------------------
+2. DATA LAYOUT
+--------------------------------------------------------------------------------
+
+Each experiment lives under data/<experiment_name>/ and must follow this structure:
+
+  data/
+    my_experiment/
+      complex_001/
+        protein.pdb          <- any .pdb file
+        ligand.sdf           <- any .sdf file
+      complex_002/
+        protein.pdb
+        ligand.sdf
+      ...
+
+Rules:
+  - Each subfolder = one protein-ligand pair.
+  - Folder name does not matter — only file extensions are matched by regex.
+  - One .pdb and one .sdf per folder (more = cartesian product of pairs).
+
+Existing experiments:
+  data/rad/   — 9 complexes (A_B ... P_Q), filenames: *_protein.pdb, *_ligand.sdf
+  data/rad2/  — 9 complexes, filenames: *.pdb, *_ligands.sdf
+
+For each experiment there must be a matching config at:
+  conf/experiments/<name>.yaml
+
+Example conf/experiments/my_experiment.yaml:
+  _target_: sigmadock.experiments.ExperimentConfig
+  name: "my_experiment"
+  dataset: "my_experiment/"
+  pdb_regex: ".*\\.pdb$"
+  sdf_regex: ".*\\.sdf$"
+
+--------------------------------------------------------------------------------
+3. RUNNING SAMPLING (SLURM cluster)
+--------------------------------------------------------------------------------
+
+Always run from the project root:
+
+  cd /home/prescout/software/sigmadock
+
+Set environment variables, then submit:
+
+  export CKPT_DIR=model          # path to checkpoint directory (required)
+  export EXPERIMENT=rad2         # name matching conf/experiments/<name>.yaml
+  sbatch slurm/sample.sh
+
+Optional variables (all have defaults):
+  DATA_DIR    — default: ./data
+  OUTPUT_DIR  — default: ./sampling_output
+  CONDA_ENV   — default: sigmadock_auto
+
+IMPORTANT: SLURM inherits your shell environment. If you previously exported
+EXPERIMENT=rad and want to change it, you must re-export or unset it:
+
+  unset EXPERIMENT               # falls back to script default
+  export EXPERIMENT=rad2         # or set explicitly
+
+Check job logs:
+  slurm_logs/<jobid>.out         <- stdout
+  slurm_logs/<jobid>.err         <- stderr (check this first on failure)
+
+--------------------------------------------------------------------------------
+4. OUTPUT STRUCTURE
+--------------------------------------------------------------------------------
+
+Results land under:
+
+  sampling_output/results/<experiment>/<checkpoint>/<run_tag>/seed_<N>/
+    predictions.pt     <- main results (docked coordinates, trajectories)
+    predictions.yaml   <- hydra config snapshot
+    rescoring.pt       <- vinardo scores (if scoring enabled)
+    posebusters.pt     <- PoseBusters validity checks + RMSDs (if enabled)
+
+Content of predictions.pt:
+  data["meta"]                        — run metadata (timestamp, torch version)
+  data["results"]                     — dict keyed by complex name
+    data["results"]["A_B"]            — list of per-seed dicts
+      entry["x0"]        [N,3]        — final docked heavy atom coordinates
+      entry["x0_hat"]    [N,3]        — model's clean prediction
+      entry["trajectory"][T,N,3]      — full diffusion trajectory (30 steps)
+      entry["com"]       [3]          — predicted centre of mass
+      entry["lig_ref"]                — RDKit Mol object (original ligand)
+      entry["prot_ref"]               — protein reference
+      entry["ligand_path"]            — path to input SDF
+      entry["pdb_path"]               — path to input PDB
+      entry["seed"]                   — random seed used
+
+--------------------------------------------------------------------------------
+5. ANALYSIS NOTEBOOK
+--------------------------------------------------------------------------------
+
+Open analysis.ipynb from the project root (kernel: sigmadock_auto).
+
+Update RESULTS_DIR at the top to point to your seed folder, then run all cells:
+
+  RESULTS_DIR = Path("sampling_output/results/rad2/sample_checkpoint_0/conformer_sampling/seed_0")
+
+The notebook:
+  Cell 1  — loads all three .pt files
+  Cell 2  — inspects predictions.pt structure (keys, shapes, paths)
+  Cell 3  — summary table: complex name, seed, atom count, trajectory steps
+  Cell 4  — prints rescoring (vinardo affinity scores)
+  Cell 5  — prints PoseBusters checks and per-complex RMSDs
+  Cell 6  — exports one SDF per complex → sdf_out/<complex>_pose_<i>.sdf
+             uses x0_hat (model prediction) + original topology from lig_ref
+  Cell 7  — exports full protein-ligand complex PDBs → complexes/<complex>_pose_<i>_complex.pdb
+             protein ATOM records + ligand as HETATM, openable in PyMOL/Chimera
+
+--------------------------------------------------------------------------------
+6. ADDING A NEW EXPERIMENT
+--------------------------------------------------------------------------------
+
+1. Create the data folder:
+     mkdir -p data/my_exp/complex_001
+     cp protein.pdb data/my_exp/complex_001/
+     cp ligand.sdf  data/my_exp/complex_001/
+
+2. Create the config:
+     cp conf/experiments/rad.yaml conf/experiments/my_exp.yaml
+     # edit name and dataset fields
+
+3. Submit:
+     export CKPT_DIR=model
+     export EXPERIMENT=my_exp
+     sbatch slurm/sample.sh
+
+4. Analyze:
+     # update RESULTS_DIR in analysis.ipynb and run all cells
+
+================================================================================

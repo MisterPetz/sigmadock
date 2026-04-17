@@ -63,8 +63,9 @@ training = "scripts.train:main"
 sampling = "scripts.sample:main"
 
 [tool.setuptools.packages.find]
-where = ["src", "scripts"]
+where = ["src", "."]
 include = ["sigmadock*", "scripts*"]
+exclude = ["sigmadock.diff.cache*"]
 
 [tool.mypy]
 ignore_missing_imports = false

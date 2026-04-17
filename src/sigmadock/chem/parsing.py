@@ -507,7 +507,6 @@ def extract_pockets_deprecated(  # noqa
     # For tracking, assumes <PDB_ID>_<LIG_ID>_<...>.pdb
     pdb_id = os.path.basename(protein_pdb).split("_")[0]
     lig_id = os.path.basename(protein_pdb).split("_")[1]
-
     # Load ligands
     ligand_mols: list[Chem.Mol] = read_ligands_from_sdf(ligand_sdf)
     if not ligand_mols:
@@ -1032,6 +1031,7 @@ def sample_complex(
         filter_outlier_factor=filter_outlier_factor,
         random_sample=True,
     )
+    print(f"pocket: {pockets}")
 
     assert len(pockets) > 0, f"No pockets found in {pdb}."
     assert len(ligands) > 0, f"No ligands found in {sdf}."

@@ -11,7 +11,7 @@
 # ------------------------------- SBATCH (customize for your cluster) -------------------------------
 #SBATCH --job-name=sigmadock-sampling
 #SBATCH --nodes=1
-#SBATCH --gpus=1
+#SBATCH --gres=gpu:1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --time=01:00:00
@@ -25,8 +25,8 @@ PROJECT_DIR="${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-.}}"
 CKPT_DIR="${CKPT_DIR:?Set CKPT_DIR to your model checkpoint path}"
 DATA_DIR="${DATA_DIR:-${PROJECT_DIR}/data}"
 OUTPUT_DIR="${OUTPUT_DIR:-${PROJECT_DIR}/sampling_output}"
-CONDA_ENV="${CONDA_ENV:-sigmadock}"
-EXPERIMENT="${EXPERIMENT:-posebusters}"
+CONDA_ENV="${CONDA_ENV:-sigmadock_auto}"
+EXPERIMENT="${EXPERIMENT:-rad2}"
 
 TASK_ID=${SLURM_ARRAY_TASK_ID:-0}
 
@@ -34,10 +34,8 @@ cd "${PROJECT_DIR}" || exit 1
 mkdir -p slurm_logs
 
 # ------------------------------- Conda -------------------------------
-if command -v conda &>/dev/null; then
-  source "$(conda info --base)/etc/profile.d/conda.sh"
-  conda activate "${CONDA_ENV}" || { echo "ERROR: failed to activate ${CONDA_ENV}"; exit 1; }
-fi
+source "/home/prescout/miniconda3/etc/profile.d/conda.sh" || { echo "ERROR: conda.sh not found"; exit 1; }
+conda activate "${CONDA_ENV}" || { echo "ERROR: failed to activate ${CONDA_ENV}"; exit 1; }
 
 # ------------------------------- Run sampling -------------------------------
 # Note num_seeds is set to 1 for full reproducibility.
@@ -46,7 +44,7 @@ python scripts/sample.py \
   sampling.experiments.name="${EXPERIMENT}" \
   sampling.run_tag="conformer_sampling" \
   sampling.graph.sample_conformer=true \
-  sampling.experiments.sdf_regex=".*ligands.sdf$" \
+  sampling.experiments.sdf_regex=".*.sdf$" \
   sampling.seed=${TASK_ID} \
   sampling.output_dir="${OUTPUT_DIR}" \
   sampling.data.data_dir="${DATA_DIR}" \

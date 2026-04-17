@@ -7,6 +7,11 @@ __pycache__/
 /results/
 outputs/
 checkpoints/
+model/
+conf/
+sdf_out/
+slurm_logs/
+output/
 
 # Distribution / packaging
 .Python
@@ -55,6 +60,7 @@ runs/
 /experiments/
 tmp/
 .cache_igso3/
+/sampling_output/
 
 # IPython
 profile_default/
@@ -77,3 +83,5 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+
+*.ipynb
